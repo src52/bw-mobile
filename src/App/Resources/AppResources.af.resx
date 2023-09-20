@@ -1752,11 +1752,11 @@ Skandering gebeur outomaties.</value>
     <value>Wil u dit regtig na die asblik stuur?</value>
     <comment>Confirmation alert message when soft-deleting a cipher.</comment>
   </data>
-  <data name="BiometricInvalidated" xml:space="preserve">
-    <value>Biometriese ontgrendeling gedeaktiveer hangende bevestiging van hoofwagwoord.</value>
+  <data name="AccountBiometricInvalidated" xml:space="preserve">
+    <value>Biometriese ontgrendeling vir hierdie rekening is gedeaktiveer hangende bevestiging van hoofwagwoord.</value>
   </data>
-  <data name="BiometricInvalidatedExtension" xml:space="preserve">
-    <value>Biometriese ontgrendeling vir outovul gedeaktiveer hangende bevestiging van hoofwagwoord.</value>
+  <data name="AccountBiometricInvalidatedExtension" xml:space="preserve">
+    <value>Outovul-biometriese ontgrendeline vir hierdie rekening is gedeaktiveer hangende bevestiging van hoofwagwoord.</value>
   </data>
   <data name="EnableSyncOnRefresh" xml:space="preserve">
     <value>Aktiveer sinchronisering by verfrissing</value>
@@ -2142,6 +2142,12 @@ Skandering gebeur outomaties.</value>
   <data name="VaultTimeoutPolicyInEffect" xml:space="preserve">
     <value>U organisasiebeleide beïnvloed u kluisuitelling. Maksimum toegelate kluisuittelling is {0} uur en {1} minuut(e).</value>
   </data>
+  <data name="VaultTimeoutPolicyWithActionInEffect" xml:space="preserve">
+    <value>Jou organisasie se beleid affekteer jou kluis-uittel tyd. Maksimum toelaatbare kluis-uittel tyd is {0} uur(ure) en {1} minuut(minute). Jou kluis-uittel aksie is gestel na {2}.</value>
+  </data>
+  <data name="VaultTimeoutActionPolicyInEffect" xml:space="preserve">
+    <value>Jou organisasie se beleid het jou kluis-uittel aksie na {0} verander.</value>
+  </data>
   <data name="VaultTimeoutToLarge" xml:space="preserve">
     <value>U kluisuittelling oorskry die beperkinge wat deur u organisasie daargestel is.</value>
   </data>
@@ -2489,8 +2495,8 @@ Wil u na die rekening omskakel?</value>
   <data name="GetMasterPasswordwordHint" xml:space="preserve">
     <value>Kry hoofwagwoord wenk</value>
   </data>
-  <data name="LoggingInAsX" xml:space="preserve">
-    <value>Teken in as {0}</value>
+  <data name="LoggingInAsXOnY" xml:space="preserve">
+    <value>Teken aan as {0} op {1}</value>
   </data>
   <data name="NotYou" xml:space="preserve">
     <value>Nie jy nie?</value>
@@ -2592,15 +2598,42 @@ Wil u na die rekening omskakel?</value>
     <value>Organisasie SSO identifiseerder vereis.</value>
   </data>
   <data name="AddTheKeyToAnExistingOrNewItem" xml:space="preserve">
-    <value>Add the key to an existing or new item</value>
+    <value>Voeg die sleutel by 'n huidige of nuwe item</value>
   </data>
   <data name="ThereAreNoItemsInYourVaultThatMatchX" xml:space="preserve">
-    <value>There are no items in your vault that match "{0}"</value>
+    <value>Daar is geen items in jou kluis wat met "{0}" ooreenstem nie</value>
   </data>
   <data name="SearchForAnItemOrAddANewItem" xml:space="preserve">
-    <value>Search for an item or add a new item</value>
+    <value>Soek vir 'n item of voeg 'n nuwe een by</value>
   </data>
   <data name="ThereAreNoItemsThatMatchTheSearch" xml:space="preserve">
-    <value>There are no items that match the search</value>
+    <value>Daar is geen items wat met die soekterm ooreenstem nie</value>
+  </data>
+  <data name="US" xml:space="preserve">
+    <value>VS</value>
+  </data>
+  <data name="EU" xml:space="preserve">
+    <value>EU</value>
+  </data>
+  <data name="SelfHosted" xml:space="preserve">
+    <value>Selghehuisves</value>
+  </data>
+  <data name="DataRegion" xml:space="preserve">
+    <value>Datastreek</value>
+  </data>
+  <data name="Region" xml:space="preserve">
+    <value>Streek</value>
+  </data>
+  <data name="UpdateWeakMasterPasswordWarning" xml:space="preserve">
+    <value>U hoofwagwoord voldoen nie aan een of meer van die organisasiebeleide nie. Om toegang tot die kluis te kry, moet u nou u hoofwagwoord bywerk. Deur voort te gaan sal u van u huidige sessie afgeteken word, en u sal weer moet aanteken. Aktiewe sessies op ander toestelle kan vir tot een uur aktief bly.</value>
+  </data>
+  <data name="CurrentMasterPassword" xml:space="preserve">
+    <value>Huidige hoofwagwoord</value>
+  </data>
+  <data name="MasterPasswordRePromptHelp" xml:space="preserve">
+    <value>Master password re-prompt help</value>
+  </data>
+  <data name="UnlockingMayFailDueToInsufficientMemoryDecreaseYourKDFMemorySettingsToResolve" xml:space="preserve">
+    <value>Unlocking may fail due to insufficient memory. Decrease your KDF memory settings to resolve</value>
   </data>
 </root>

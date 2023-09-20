@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Bit.Core.Abstractions;
 using Bit.Core.Enums;
@@ -12,11 +13,13 @@ namespace Bit.Core.Services
 {
     public class StateMigrationService : IStateMigrationService
     {
-        private const int StateVersion = 4;
+        private const int StateVersion = 5;
 
+        private readonly DeviceType _deviceType;
         private readonly IStorageService _preferencesStorageService;
         private readonly IStorageService _liteDbStorageService;
         private readonly IStorageService _secureStorageService;
+        private readonly SemaphoreSlim _semaphore;
 
         private enum Storage
         {
@@ -25,15 +28,34 @@ namespace Bit.Core.Services
             Secure,
         }
 
-        public StateMigrationService(IStorageService liteDbStorageService, IStorageService preferenceStorageService,
-            IStorageService secureStorageService)
+        public StateMigrationService(DeviceType deviceType, IStorageService liteDbStorageService,
+            IStorageService preferenceStorageService, IStorageService secureStorageService)
         {
+            _deviceType = deviceType;
             _liteDbStorageService = liteDbStorageService;
             _preferencesStorageService = preferenceStorageService;
             _secureStorageService = secureStorageService;
+
+            _semaphore = new SemaphoreSlim(1);
         }
 
-        public async Task<bool> NeedsMigration()
+        public async Task MigrateIfNeededAsync()
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                if (await IsMigrationNeededAsync())
+                {
+                    await PerformMigrationAsync();
+                }
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        private async Task<bool> IsMigrationNeededAsync()
         {
             var lastVersion = await GetLastStateVersionAsync();
             if (lastVersion == 0)
@@ -45,7 +67,7 @@ namespace Bit.Core.Services
             return lastVersion < StateVersion;
         }
 
-        public async Task Migrate()
+        private async Task PerformMigrationAsync()
         {
             var lastVersion = await GetLastStateVersionAsync();
             switch (lastVersion)
@@ -58,6 +80,9 @@ namespace Bit.Core.Services
                     goto case 3;
                 case 3:
                     await MigrateFrom3To4Async();
+                    break;
+                case 4:
+                    await MigrateFrom4To5Async();
                     break;
             }
         }
@@ -422,6 +447,10 @@ namespace Bit.Core.Services
             // Removal of old state data will happen organically as state is rebuilt in app
         }
 
+        #endregion
+
+        #region v4 to v5 Migration
+
         private class V4Keys
         {
             internal static string VaultTimeoutKey(string userId) => $"vaultTimeout_{userId}";
@@ -430,6 +459,87 @@ namespace Bit.Core.Services
             internal const string ThemeKey = "theme";
             internal const string AutoDarkThemeKey = "autoDarkTheme";
             internal const string DisableFaviconKey = "disableFavicon";
+            internal const string BiometricIntegrityKey = "biometricIntegrityState";
+            internal const string iOSAutoFillBiometricIntegrityKey = "iOSAutoFillBiometricIntegrityState";
+            internal const string iOSExtensionBiometricIntegrityKey = "iOSExtensionBiometricIntegrityState";
+            internal const string iOSShareExtensionBiometricIntegrityKey = "iOSShareExtensionBiometricIntegrityState";
+        }
+
+        private async Task MigrateFrom4To5Async()
+        {
+            var bioIntegrityState = await GetValueAsync<string>(Storage.Prefs, V4Keys.BiometricIntegrityKey);
+            var iOSAutofillBioIntegrityState =
+                await GetValueAsync<string>(Storage.Prefs, V4Keys.iOSAutoFillBiometricIntegrityKey);
+            var iOSExtensionBioIntegrityState =
+                await GetValueAsync<string>(Storage.Prefs, V4Keys.iOSExtensionBiometricIntegrityKey);
+            var iOSShareExtensionBioIntegrityState =
+                await GetValueAsync<string>(Storage.Prefs, V4Keys.iOSShareExtensionBiometricIntegrityKey);
+
+            if (_deviceType == DeviceType.Android && string.IsNullOrWhiteSpace(bioIntegrityState))
+            {
+                bioIntegrityState = Guid.NewGuid().ToString();
+            }
+
+            await SetValueAsync(Storage.Prefs, V5Keys.BiometricIntegritySourceKey, bioIntegrityState);
+
+            if (_deviceType == DeviceType.iOS)
+            {
+                await SetValueAsync(Storage.Prefs, V5Keys.iOSAutoFillBiometricIntegritySourceKey,
+                    iOSAutofillBioIntegrityState);
+                await SetValueAsync(Storage.Prefs, V5Keys.iOSExtensionBiometricIntegritySourceKey,
+                    iOSExtensionBioIntegrityState);
+                await SetValueAsync(Storage.Prefs, V5Keys.iOSShareExtensionBiometricIntegritySourceKey,
+                    iOSShareExtensionBioIntegrityState);
+            }
+
+            var state = await GetValueAsync<State>(Storage.LiteDb, Constants.StateKey);
+            if (state?.Accounts is null)
+            {
+                // No accounts available, update stored version and exit
+                await SetLastStateVersionAsync(5);
+                return;
+            }
+
+            // build integrity keys for existing users
+            foreach (var account in state.Accounts.Where(a => a.Value?.Profile?.UserId != null))
+            {
+                var userId = account.Value.Profile.UserId;
+
+                await SetValueAsync(Storage.LiteDb,
+                    V5Keys.AccountBiometricIntegrityValidKey(userId, bioIntegrityState), true);
+
+                if (_deviceType == DeviceType.iOS)
+                {
+                    await SetValueAsync(Storage.LiteDb,
+                        V5Keys.AccountBiometricIntegrityValidKey(userId, iOSAutofillBioIntegrityState), true);
+                    await SetValueAsync(Storage.LiteDb,
+                        V5Keys.AccountBiometricIntegrityValidKey(userId, iOSExtensionBioIntegrityState), true);
+                    await SetValueAsync(Storage.LiteDb,
+                        V5Keys.AccountBiometricIntegrityValidKey(userId, iOSShareExtensionBioIntegrityState), true);
+                }
+            }
+
+            // Update stored version
+            await SetLastStateVersionAsync(5);
+
+            // Remove old data
+            await RemoveValueAsync(Storage.Prefs, V4Keys.BiometricIntegrityKey);
+            await RemoveValueAsync(Storage.Prefs, V4Keys.iOSAutoFillBiometricIntegrityKey);
+            await RemoveValueAsync(Storage.Prefs, V4Keys.iOSExtensionBiometricIntegrityKey);
+            await RemoveValueAsync(Storage.Prefs, V4Keys.iOSShareExtensionBiometricIntegrityKey);
+        }
+
+        private class V5Keys
+        {
+            internal const string BiometricIntegritySourceKey = "biometricIntegritySource";
+            internal const string iOSAutoFillBiometricIntegritySourceKey = "iOSAutoFillBiometricIntegritySource";
+            internal const string iOSExtensionBiometricIntegritySourceKey = "iOSExtensionBiometricIntegritySource";
+
+            internal const string iOSShareExtensionBiometricIntegritySourceKey =
+                "iOSShareExtensionBiometricIntegritySource";
+
+            internal static string AccountBiometricIntegrityValidKey(string userId, string systemBioIntegrityState) =>
+                $"accountBiometricIntegrityValid_{userId}_{systemBioIntegrityState}";
         }
 
         #endregion

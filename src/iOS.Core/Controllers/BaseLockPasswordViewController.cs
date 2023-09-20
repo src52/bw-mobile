@@ -56,7 +56,7 @@ namespace Bit.iOS.Core.Controllers
         public FormEntryTableViewCell MasterPasswordCell { get; set; } = new FormEntryTableViewCell(
             AppResources.MasterPassword, buttonsConfig: FormEntryTableViewCell.ButtonsConfig.One);
 
-        public string BiometricIntegrityKey { get; set; }
+        public string BiometricIntegritySourceKey { get; set; }
 
         public UITableViewCell BiometricCell
         {
@@ -77,7 +77,7 @@ namespace Bit.iOS.Core.Controllers
                     cell.TextLabel.Font = ThemeHelpers.GetDangerFont();
                     cell.TextLabel.Lines = 0;
                     cell.TextLabel.LineBreakMode = UILineBreakMode.WordWrap;
-                    cell.TextLabel.Text = AppResources.BiometricInvalidatedExtension;
+                    cell.TextLabel.Text = AppResources.AccountBiometricInvalidatedExtension;
                 }
                 return cell;
             }
@@ -114,7 +114,8 @@ namespace Bit.iOS.Core.Controllers
                            _isPinProtectedWithKey;
                 _biometricLock = await _vaultTimeoutService.IsBiometricLockSetAsync() &&
                                  await _cryptoService.HasKeyAsync();
-                _biometricIntegrityValid = await _biometricService.ValidateIntegrityAsync(BiometricIntegrityKey);
+                _biometricIntegrityValid =
+                    await _platformUtilsService.IsBiometricIntegrityValidAsync(BiometricIntegritySourceKey);
                 _usesKeyConnector = await _keyConnectorService.GetUsesKeyConnector();
                 _biometricUnlockOnly = _usesKeyConnector && _biometricLock && !_pinLock;
             }
@@ -223,6 +224,18 @@ namespace Bit.iOS.Core.Controllers
             var email = await _stateService.GetEmailAsync();
             var kdfConfig = await _stateService.GetActiveUserCustomDataAsync(a => new KdfConfig(a?.Profile));
             var inputtedValue = MasterPasswordCell.TextField.Text;
+
+            // HACK: iOS extensions have constrained memory, given how it works Argon2Id, it's likely to crash
+            // the extension depending on the argon2id memory configured.
+            // So, we warn the user and advise to decrease the configured memory letting them the option to continue, if wanted.
+            if (kdfConfig.Type == KdfType.Argon2id
+                &&
+                kdfConfig.Memory > Constants.MaximumArgon2IdMemoryBeforeExtensionCrashing
+                &&
+                !await _platformUtilsService.ShowDialogAsync(AppResources.UnlockingMayFailDueToInsufficientMemoryDecreaseYourKDFMemorySettingsToResolve, AppResources.Warning, AppResources.Continue, AppResources.Cancel))
+            {
+                return;
+            }
 
             if (_pinLock)
             {
@@ -371,7 +384,7 @@ namespace Bit.iOS.Core.Controllers
             // Re-enable biometrics if initial use
             if (_biometricLock & !_biometricIntegrityValid)
             {
-                await _biometricService.SetupBiometricAsync(BiometricIntegrityKey);
+                await _biometricService.SetupBiometricAsync(BiometricIntegritySourceKey);
             }
         }
 
